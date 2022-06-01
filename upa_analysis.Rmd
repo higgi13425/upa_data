@@ -1,0 +1,45 @@
+---
+title: "upa_analysis"
+author: "Peter Higgins"
+date: "5/31/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(here)
+library(lubridate)
+```
+
+## Upadacitinib Inpatients
+
+First pass at CRP values
+
+```{r data}
+crp <- readxl::read_excel("upa_data2.xlsx") %>%
+  filter(test == "crp") %>% 
+  relocate(patient, Dx, upa_start_date, upa)
+
+```
+
+##  Plots
+
+You can also embed plots, for example:
+
+```{r plot, echo=FALSE}
+crp %>% 
+  group_by(patient) %>% 
+  ggplot() +
+  aes(x = date, y = 10*value, group = patient, color = patient) +
+  geom_point() +
+  geom_line() +
+  labs(y = "CRP in mg/L",
+       x = "Date and Time") +
+  annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 50, label= "Upa start", color = "blue"  ) +
+  annotate("text", x = mdy_hms("May 27, 2022, 14:04:00"), y = 240, label= "Upa start", color = "forestgreen") +
+  annotate("text", x = mdy_hms("May 29, 2022, 11:21:00"), y = 145, label= "Upa start", color = "red")
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
