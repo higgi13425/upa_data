@@ -37,7 +37,7 @@ crp %>%
   geom_point() +
   geom_line() +
   labs(y = "CRP in milligrams/Liter",
-       x = "Date - Time") +
+       x = "Date") +
   annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 46, label= "Upa start 3", color = "blue"  ) +
   annotate("text", x = mdy_hms("May 27, 2022, 14:04:00"), y = 238, label= "Upa start 1", color = "red") +
   annotate("text", x = mdy_hms("May 29, 2022, 11:21:00"), y = 138, label= "Upa start 2", color = "forestgreen") +
