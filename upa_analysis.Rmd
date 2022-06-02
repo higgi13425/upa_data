@@ -43,7 +43,7 @@ crp %>%
   scale_y_continuous(breaks = seq(0, 250, 10),
           expand = expansion(add = c(3,5))) +
   geom_hline(yintercept =8, color = "black") +
-  annotate("text", x = mdy_hms("May 27, 2022, 15:00:00"), y = 10, label= "Upper Limit of Normal for CRP", color = "black")
+  annotate("text", x = mdy_hms("May 27, 2022, 21:00:00"), y = 10, label= "Upper Limit of Normal for CRP", color = "black")
 
 ```
 
