@@ -20,7 +20,8 @@ First pass at CRP values
 ```{r data}
 crp <- readxl::read_excel("upa_data2.xlsx") %>%
   filter(test == "crp") %>% 
-  relocate(patient, Dx, upa_start_date, upa)
+  mutate(patient = factor(patient)) %>% 
+  relocate(patient, Dx, upa_start_date, upa) 
 
 ```
 
@@ -37,14 +38,13 @@ crp %>%
   geom_line() +
   labs(y = "CRP in milligrams/Liter",
        x = "Date - Time") +
-  annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 50, label= "Upa start", color = "blue"  ) +
-  annotate("text", x = mdy_hms("May 27, 2022, 14:04:00"), y = 240, label= "Upa start", color = "forestgreen") +
-  annotate("text", x = mdy_hms("May 29, 2022, 11:21:00"), y = 145, label= "Upa start", color = "red") +
+  annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 46, label= "Upa start 3", color = "blue"  ) +
+  annotate("text", x = mdy_hms("May 27, 2022, 14:04:00"), y = 238, label= "Upa start 1", color = "red") +
+  annotate("text", x = mdy_hms("May 29, 2022, 11:21:00"), y = 138, label= "Upa start 2", color = "forestgreen") +
   scale_y_continuous(breaks = seq(0, 250, 10),
           expand = expansion(add = c(3,5))) +
   geom_hline(yintercept =8, color = "black") +
-  annotate("text", x = mdy_hms("May 27, 2022, 21:00:00"), y = 10, label= "Upper Limit of Normal for CRP", color = "black")
+  annotate("text", x = mdy_hms("May 27, 2022, 15:00:00"), y = 10, label= "Upper Limit of Normal for CRP", color = "black")
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
