@@ -20,7 +20,7 @@ First pass at CRP values
 ```{r data}
 crp <- readxl::read_excel("upa_data2.xlsx") %>%
   filter(test == "crp") %>% 
-  filter(Dx == "uc") %>% 
+  #filter(Dx == "uc") %>% 
   mutate(patient = factor(patient)) %>% 
   relocate(patient, Dx, upa_start_date, upa) 
 
@@ -37,11 +37,11 @@ crp %>%
   aes(x = date, y = 10*value, group = patient, color = patient) +
   geom_point() +
   geom_line() +
-  scale_color_manual(values = c("red", "blue")) +
+  scale_color_manual(values = c("red", "blue", "green")) +
   labs(y = "CRP in milligrams/Liter",
        x = "Date",
        title = "Inpatient Upadacitinib 30 mg po bid with IV steroids for ASUC") +
-  #annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 46, label= "Upa start 3", color = "blue"  ) +
+  annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 46, label= "Upa start 3", color = "blue"  ) +
   annotate("text", x = mdy_hms("May 27, 2022, 14:04:00"), y = 238, label= "Upa start 1", color = "red") +
   annotate("text", x = mdy_hms("May 29, 2022, 11:21:00"), y = 138, label= "Upa start 2", color = "blue") +
   scale_y_continuous(breaks = seq(0, 250, 10),
