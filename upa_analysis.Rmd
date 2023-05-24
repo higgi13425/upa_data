@@ -1,8 +1,10 @@
 ---
-title: "upa_analysis"
+title: "upa_analysis - draft"
 author: "Peter Higgins"
 date: "5/31/2022"
-output: html_document
+output: 
+  html_document:
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -11,44 +13,258 @@ library(tidyverse)
 library(readxl)
 library(here)
 library(lubridate)
+library(gt)
+library(janitor)
+library(ggdist)
+library(ggthemes)
 ```
 
-## Upadacitinib Inpatients
+<!-- ## Upadacitinib Inpatients - Initial longitudinal plot -->
 
-First pass at CRP values
+<!-- First pass at CRP values -->
 
-```{r data}
-crp <- readxl::read_excel("upa_data2.xlsx") %>%
-  filter(test == "crp") %>% 
-  #filter(Dx == "uc") %>% 
-  mutate(patient = factor(patient)) %>% 
-  relocate(patient, Dx, upa_start_date, upa) 
+<!-- ```{r data} -->
+<!-- crp <- readxl::read_excel("upa_data2.xlsx") %>% -->
+<!--   filter(test == "crp") %>%  -->
+<!--   #filter(Dx == "uc") %>%  -->
+<!--   mutate(patient = factor(patient)) %>%  -->
+<!--   relocate(patient, Dx, upa_start_date, upa)  -->
+<!-- ``` -->
+
+<!-- ##  Plots -->
+
+<!-- ```{r plot, echo=FALSE} -->
+<!-- crp %>%  -->
+<!--   group_by(patient) %>%  -->
+<!--   ggplot() + -->
+<!--   aes(x = date, y = 10*value, group = patient, color = patient) + -->
+<!--   geom_point() + -->
+<!--   geom_line() + -->
+<!--   scale_color_manual(values = c("red", "blue", "green")) + -->
+<!--   labs(y = "CRP in milligrams/Liter", -->
+<!--        x = "Date", -->
+<!--        title = "Inpatient Upadacitinib 30 mg po bid with IV steroids for ASUC") + -->
+<!--   annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 46, label= "Upa start 3", color = "blue"  ) + -->
+<!--   annotate("text", x = mdy_hms("May 27, 2022, 14:04:00"), y = 238, label= "Upa start 1", color = "red") + -->
+<!--   annotate("text", x = mdy_hms("May 29, 2022, 11:21:00"), y = 138, label= "Upa start 2", color = "blue") + -->
+<!--   scale_y_continuous(breaks = seq(0, 250, 10), -->
+<!--           expand = expansion(add = c(3,5))) + -->
+<!--   geom_hline(yintercept =8, color = "black") + -->
+<!--   annotate("text", x = mdy_hms("May 27, 2022, 15:00:00"), y = 10, label= "Upper Limit of Normal for CRP", color = "black") + -->
+<!--   theme(legend.position = c(0.72, 0.796)) -->
+
+<!-- ``` -->
+
+## Data in 2 files
+- all_hospitalized_uc.csv plus colectomy data - to be merged
+- upa_ifx_tofa_hospitalized_uc.csv
+Let's explore
+
+all_hospitalized
+- includes 10481 CRPs, 405 FCPs
+- all are controls - no upa, tofa, ifx
+- from 2012-02-11 to 2021-09-23
+- 679 unique individuals, 198 went to colectomy
+
+Now show average FCP by Day in the folks up to day 13 - most not in hospital very long. Many of these on Upa, as we started doing routine FCP on ASUC inpatients in the past year.
+
+```{r}
+all_hosp <- read_csv('all_hospitalized_uc.csv')
+all_hosp |> distinct(cpi_num, .keep_all = TRUE) |> count()
+# total 679 on CS, possibly some got IFX, some Cyclo, possibly a few tofa. Ended before Upa
+
+all_hosp_colect <- readxl::read_excel('all_hospitalized_colectomy.xlsx') |> distinct(PatientID, .keep_all = TRUE)
+
+all_hosp <- left_join(all_hosp, all_hosp_colect)
+
+# how many colect
+
+all_hosp_colect |> count()
+# 198 colect/ total 679 on CS+
+all_hosp |> 
+  filter(test == "FCP") |> 
+  select(cpi_num ,admit_date, 
+         test_date, value) |> 
+  mutate(day = as.numeric(test_date - admit_date + 1)) |> 
+  group_by(day) |> 
+  summarize(mean_fcp = mean(value),
+            count = n()) |> 
+  gt()
+
+all_hosp |> 
+  filter(test == "CRP") |> 
+  select(cpi_num ,admit_date, 
+         test_date, value) |> 
+  mutate(day = as.numeric(test_date - admit_date + 1)) |> 
+  group_by(day) |> 
+  summarize(mean_crp = mean(value*10),
+            count = n()) |> 
+  print(n = 86) |> 
+  gt()
 
 ```
 
-##  Plots
+Now let's look at advanced therapies
+- 1890 lab values (Crp and FCP) for ifx, 368 for tofa, 243 for upa
+- from 2014-01-06 to 2023-01-06
+- 2455 CRPs, 46 FCPs
+(note only recently routinely getting FCP, mostly in Upa)
+- in 207 unique individuals
+- among unique individuals
+IFX - 61 colect, 95 not
+tofa - 14 colect, 17 not
+upa - 5 colect, 15 not
 
-You can also embed plots, for example:
+among previous group, treated with corticosteroids
+CS - 198 colect/ 477 not, total 679 on CS
 
-```{r plot, echo=FALSE}
-crp %>% 
-  group_by(patient) %>% 
-  ggplot() +
-  aes(x = date, y = 10*value, group = patient, color = patient) +
-  geom_point() +
-  geom_line() +
-  scale_color_manual(values = c("red", "blue", "green")) +
-  labs(y = "CRP in milligrams/Liter",
-       x = "Date",
-       title = "Inpatient Upadacitinib 30 mg po bid with IV steroids for ASUC") +
-  annotate("text", x = mdy_hms("May 27, 2022, 21:06:00"), y = 46, label= "Upa start 3", color = "blue"  ) +
-  annotate("text", x = mdy_hms("May 27, 2022, 14:04:00"), y = 238, label= "Upa start 1", color = "red") +
-  annotate("text", x = mdy_hms("May 29, 2022, 11:21:00"), y = 138, label= "Upa start 2", color = "blue") +
-  scale_y_continuous(breaks = seq(0, 250, 10),
-          expand = expansion(add = c(3,5))) +
-  geom_hline(yintercept =8, color = "black") +
-  annotate("text", x = mdy_hms("May 27, 2022, 15:00:00"), y = 10, label= "Upper Limit of Normal for CRP", color = "black") +
-  theme(legend.position = c(0.72, 0.796))
+Mean CRP by Rx and colectomy at d3, d7,d14 with advanced Rx
+(note rapid selection - people doing well go home, people doing badly go to colectomy, so N count goes down quickly, and FCP and CRP go up, as only the sick remain)
+
+IFX no colect - d3 74.7, d7 33.5, d14 27.3
+IFX eventual colect - d3 71, d7 59.7, d14 40.2
+tofa no colect - d3 61.3, d7 32.7, d14 24.2
+tofa eventual colect - d3 38.9, d7 20.5, d14 154
+upa no colect - d3 41.2, d7 11.3, d14 79.2
+upa eventual colect - d3 64.6, d7 51.4, d14 84
+
+Full CRP table below
+
+Then group by Rx and colectomy (0/1) and average daily value of CRP
+(0-IFX means people who got IFX and no colectomy)
+
+```{r}
+adv_rx <- read_csv('upa_ifx_tofa_hospitalized_uc.csv')
+
+adv_rx |> 
+  filter(test == "FCP") |> 
+  select(cpi_num,admit_date, cohort,
+         test_date, value) |> 
+  mutate(day = as.numeric(test_date - admit_date + 1)) |> 
+  group_by(cohort, day) |> 
+  summarize(mean_fcp = mean(value),
+            count = n()) |> 
+  gt()
+
+
+adv_rx |> 
+  filter(test == "CRP") |> 
+  select(cpi_num,admit_date, cohort, colect,
+         test_date, value) |> 
+  mutate(day = as.numeric(test_date - admit_date + 1)) |> 
+  group_by(colect, cohort, day) |> 
+  summarize(mean_crp = mean(value*10),
+            count = n()) |> 
+  filter(day < 15) |> 
+  gt()
+
+adv_rx |> 
+  distinct(cpi_num, ,.keep_all = TRUE) |> 
+  tabyl(cohort, colect)
+```
+
+## When does colectomy occur?
+
+Let's see when colectomies occur.
+Are some treatments just delaying colectomy?
+
+### Clean up and bind rows between controls and advRx first
+```{r}
+adv_rx2 <- adv_rx |> 
+  select(cpi_num, cohort, admit_date, colect_date, colect) |> 
+  rename(colectomy = colect) |> 
+  replace_na(list(colectomy = 0)) |> 
+  distinct(cpi_num, .keep_all = TRUE) |> 
+  mutate(cpi_num = as.numeric(cpi_num)) 
+
+all_hosp2 <- all_hosp |> 
+  select(cpi_num, cohort, admit_date, Date, colectomy) |> 
+  rename(colect_date = Date) |> 
+  mutate(colect_date = as.Date( as.character(colect_date))) |> 
+   distinct(cpi_num, .keep_all = TRUE) |> 
+  replace_na(list(colectomy = 0))
+
+all_colect <- bind_rows(adv_rx2, all_hosp2)
+```
+
+### Now set up plot
+
+```{r}
+all_colect |> 
+  filter(colectomy == 1) |> 
+  select(cohort, admit_date, colect_date) |> 
+  mutate(day = as.numeric(colect_date - admit_date)) |>
+  ggplot(aes(x = cohort, y = day, fill = fct_rev(cohort))) +
+   stat_halfeye(adjust = 0.5, justification = -0.1, .width = 0) +
+  geom_boxplot(
+    width = 0.12,
+    # removing outliers
+    outlier.color = NA,
+    alpha = 0.5
+  ) +
+  stat_dots(side = "left", 
+            justification = 1.1, 
+            binwidth = 5 ) +
+  scale_y_continuous(limits = c(0,365)) +
+  coord_flip() +
+  theme(legend.position = c(0.8,0.85)) +
+  labs(x = 'treatment', title = "When Does Colectomy Occur?", fill = "Treatment") +
+  scale_x_discrete(labels = c("upa" = "Upa", "tofa" = "Tofa", "ifx" = "IFX", "ctls" = "CS")) +
+  scale_fill_discrete(labels = c("Upa", "Tofa", "IFX", "Steroid"))
+```
+
+Looks like if we can catch people early enough with Upa, no colectomies after d39. Much bigger spread with other Advanced Rx
+
+### Length of Followup for Upa?
+Is it too short to be comparable?
+Looks OK
+```{r}
+adv_rx |> 
+  filter(cohort == "upa") |> 
+  distinct(cpi_num, .keep_all = TRUE) |> 
+  select(cohort, admit_date, colect_date) |> 
+  mutate(cday = as.numeric(colect_date - admit_date)) |>
+  mutate(fu = as.numeric(today() - admit_date)) |> 
+  arrange(-fu)
+```
+range 130-409 days
+median 307 days
+One on 45 mg qd
+One on 30 upa + stelara
+All of the rest on 30 mg Upa
+
+## How many colectomy by day 7 or 14?
+
+```{r}
+adv_rx |> 
+  filter(colect == 1) |> 
+  distinct(cpi_num, .keep_all = TRUE) |> 
+  select(cohort, admit_date, colect_date) |> 
+  mutate(day = as.numeric(colect_date - admit_date + 1)) |> 
+  arrange(cohort, day) |> 
+  print(n = Inf)
+
+all_hosp2|> 
+  filter(colectomy == 1) |> 
+  distinct(cpi_num, .keep_all = TRUE) |> 
+  select(cohort, admit_date, colect_date) |> 
+  mutate(day = as.numeric(colect_date - admit_date + 1)) |> 
+  arrange(cohort, day) |> 
+  print(n = Inf)
 
 ```
 
+*Colectomies*
+IFX = 8/156 by day 7
+IFX = 30/156 by day 14
+tofa = 0/31 by day 7
+tofa = 3/31 by day 14
+upa = 2/20 by day 7
+upa = 4/20 by day 14
+CS - 113/697 by day 7
+CS - 128/697 by day 14
+
+Will need to pull more recent data to get
+- CRP on CS patients
+- FCP on CS patients
+- more complete and accurate overall #s (note weirdness with CS and colectomy dates [some negative #s of days])
