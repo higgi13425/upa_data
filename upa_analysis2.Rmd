@@ -55,28 +55,17 @@ library(ggthemes)
 
 <!-- ``` -->
 
-## Data in 2 files
-- all_hospitalized_uc.csv plus colectomy data - to be merged
-- upa_ifx_tofa_hospitalized_uc.csv
-Let's explore
+## Let's explore asuc
+1. How many admissions - 1360
+2. How many to colectomy - 513
+3. ifx 110 colect, 156 not
+4. cyclo 4 colect, 12 not
+5. tofa 37 colect, 52 not
+6. upa 7 colect, 15 not
+7. steroids only 360 colect, 617 not
 
-all_hospitalized
-- includes 10481 CRPs, 405 FCPs
-- all are controls - no upa, tofa, ifx
-- from 2012-02-11 to 2021-09-23
-- 679 unique individuals, 198 went to colectomy
-
-Now show average FCP by Day in the folks up to day 13 - most not in hospital very long. Many of these on Upa, as we started doing routine FCP on ASUC inpatients in the past year.
 
 ```{r}
-all_hosp <- read_csv('all_hospitalized_uc.csv')
-all_hosp |> distinct(cpi_num, .keep_all = TRUE) |> count()
-# total 679 on CS, possibly some got IFX, some Cyclo, possibly a few tofa. Ended before Upa
-
-all_hosp_colect <- readxl::read_excel('all_hospitalized_colectomy.xlsx') |> distinct(PatientID, .keep_all = TRUE)
-
-all_hosp <- left_join(all_hosp, all_hosp_colect)
-
 asuc <- read_csv("Berinstein_UC_2014-2023.csv") |> 
   mutate(colect = coalesce(colect, 0)) |>
   mutate(exists = 1) |> 
@@ -295,113 +284,34 @@ asuc |>
 ```
 
 
-Now let's look at advanced therapies
-- 1890 lab values (Crp and FCP) for ifx, 368 for tofa, 243 for upa
-- from 2014-01-06 to 2023-01-06
-- 2455 CRPs, 46 FCPs
-(note only recently routinely getting FCP, mostly in Upa)
-- in 207 unique individuals
-- among unique individuals
-IFX - 61 colect, 95 not
-tofa - 14 colect, 17 not
-upa - 5 colect, 15 not
-
-among previous group, treated with corticosteroids
-CS - 198 colect/ 477 not, total 679 on CS
-
-Mean CRP by Rx and colectomy at d3, d7,d14 with advanced Rx
-(note rapid selection - people doing well go home, people doing badly go to colectomy, so N count goes down quickly, and FCP and CRP go up, as only the sick remain)
-
-IFX no colect - d3 74.7, d7 33.5, d14 27.3
-IFX eventual colect - d3 71, d7 59.7, d14 40.2
-tofa no colect - d3 61.3, d7 32.7, d14 24.2
-tofa eventual colect - d3 38.9, d7 20.5, d14 154
-upa no colect - d3 41.2, d7 11.3, d14 79.2
-upa eventual colect - d3 64.6, d7 51.4, d14 84
-
-Full CRP table below
-
-Then group by Rx and colectomy (0/1) and average daily value of CRP
-(0-IFX means people who got IFX and no colectomy)
-
-```{r}
-adv_rx <- read_csv('upa_ifx_tofa_hospitalized_uc.csv')
-
-adv_rx |> 
-  filter(test == "FCP") |> 
-  select(cpi_num,admit_date, cohort,
-         test_date, value) |> 
-  mutate(day = as.numeric(test_date - admit_date + 1)) |> 
-  group_by(cohort, day) |> 
-  summarize(mean_fcp = mean(value),
-            count = n()) |> 
-  gt()
-
-
-adv_rx |> 
-  filter(test == "CRP") |> 
-  select(cpi_num,admit_date, cohort, colect,
-         test_date, value) |> 
-  mutate(day = as.numeric(test_date - admit_date + 1)) |> 
-  group_by(colect, cohort, day) |> 
-  summarize(mean_crp = mean(value*10),
-            count = n()) |> 
-  filter(day < 15) |> 
-  gt()
-
-adv_rx |> 
-  distinct(cpi_num, ,.keep_all = TRUE) |> 
-  tabyl(cohort, colect)
-```
-
 ## When does colectomy occur?
 
 Let's see when colectomies occur.
 Are some treatments just delaying colectomy?
 
-### Clean up and bind rows between controls and advRx first
+
+
+## Retry with Beeswarm
 ```{r}
-adv_rx2 <- adv_rx |> 
-  select(cpi_num, cohort, admit_date, colect_date, colect) |> 
-  rename(colectomy = colect) |> 
-  replace_na(list(colectomy = 0)) |> 
-  distinct(cpi_num, .keep_all = TRUE) |> 
-  mutate(cpi_num = as.numeric(cpi_num)) 
-
-all_hosp2 <- all_hosp |> 
-  select(cpi_num, cohort, admit_date, Date, colectomy) |> 
-  rename(colect_date = Date) |> 
-  mutate(colect_date = as.Date( as.character(colect_date))) |> 
-   distinct(cpi_num, .keep_all = TRUE) |> 
-  replace_na(list(colectomy = 0))
-
-all_colect <- bind_rows(adv_rx2, all_hosp2)
-```
-
-### Now set up plot
-
-```{r}
-all_colect |> 
-  filter(colectomy == 1) |> 
-  select(cohort, admit_date, colect_date) |> 
-  mutate(day = as.numeric(colect_date - admit_date)) |>
-  ggplot(aes(x = cohort, y = day, fill = fct_rev(cohort))) +
-   stat_halfeye(adjust = 0.5, justification = -0.1, .width = 0) +
-  geom_boxplot(
-    width = 0.12,
-    # removing outliers
-    outlier.color = NA,
-    alpha = 0.5
-  ) +
-  stat_dots(side = "left", 
-            justification = 1.1, 
-            binwidth = 5 ) +
-  scale_y_continuous(limits = c(0,365)) +
+library(ggbeeswarm)
+asuc |> 
+  filter(colect == 1) |> 
+  mutate(cohort = factor(case_when(
+    ifx == 1 ~ "IFX",
+    tofa == 1 ~ "Tofa",
+    upa == 1 ~ "Upa",
+    .default = "Steroids"
+  ), levels = rev(c("Upa", "Tofa", "Cyclo", "Steroids", "IFX")))
+  )  |> distinct(cpi_num, .keep_all = TRUE) |> 
+  ggplot(aes(x = cohort, 
+             y = time_to_colect,
+             color = fct_rev(cohort))) +
+  geom_quasirandom(method = "tukey") +
+  scale_y_continuous(limits = c(0,730)) +
   coord_flip() +
-  theme(legend.position = c(0.8,0.85)) +
-  labs(x = 'treatment', title = "When Does Colectomy Occur?", fill = "Treatment") +
-  scale_x_discrete(labels = c("upa" = "Upa", "tofa" = "Tofa", "ifx" = "IFX", "ctls" = "CS")) +
-  scale_fill_discrete(labels = c("Upa", "Tofa", "IFX", "Steroid"))
+  labs(x = 'treatment', title = "When Does Colectomy Occur?", y = "Days to Colectomy", color = "Treatment",
+       subtitle = "Are Steroids and IFX Just Delaying Colectomy in Many?") +
+      theme_linedraw()  + theme(legend.position = c(0.8,0.85))
 ```
 
 Looks like if we can catch people early enough with Upa, no colectomies after d39. Much bigger spread with other Advanced Rx
@@ -409,17 +319,24 @@ Looks like if we can catch people early enough with Upa, no colectomies after d3
 ### Length of Followup for Upa?
 Is it too short to be comparable?
 Looks OK
+
 ```{r}
-adv_rx |> 
-  filter(cohort == "upa") |> 
+asuc |> 
+  mutate(cohort = factor(case_when(
+    ifx == 1 ~ "IFX",
+    tofa == 1 ~ "Tofa",
+    upa == 1 ~ "Upa",
+    .default = "Steroids"
+  ), levels = rev(c("Upa", "Tofa", "Cyclo", "Steroids", "IFX")))) |> 
+  filter(cohort == "Upa") |> 
   distinct(cpi_num, .keep_all = TRUE) |> 
   select(cohort, admit_date, colect_date) |> 
   mutate(cday = as.numeric(colect_date - admit_date)) |>
   mutate(fu = as.numeric(today() - admit_date)) |> 
   arrange(-fu)
 ```
-range 130-409 days
-median 307 days
+range 29-367 days
+median 251 days
 One on 45 mg qd
 One on 30 upa + stelara
 All of the rest on 30 mg Upa
@@ -427,35 +344,60 @@ All of the rest on 30 mg Upa
 ## How many colectomy by day 7 or 14?
 
 ```{r}
-adv_rx |> 
-  filter(colect == 1) |> 
+# count all treated by Rx
+asuc |> 
+   mutate(cohort = factor(case_when(
+    ifx == 1 ~ "IFX",
+    tofa == 1 ~ "Tofa",
+    upa == 1 ~ "Upa",
+    .default = "Steroids"
+  ), levels = rev(c("Upa", "Tofa", "Cyclo", "Steroids", "IFX")))) |> 
   distinct(cpi_num, .keep_all = TRUE) |> 
-  select(cohort, admit_date, colect_date) |> 
-  mutate(day = as.numeric(colect_date - admit_date + 1)) |> 
-  arrange(cohort, day) |> 
+  group_by(cohort) |> 
+  count()
+
+# count all colectomies by Rx
+asuc |> 
+  filter(colect == 1) |> 
+   mutate(cohort = factor(case_when(
+    ifx == 1 ~ "IFX",
+    tofa == 1 ~ "Tofa",
+    upa == 1 ~ "Upa",
+    .default = "Steroids"
+  ), levels = rev(c("Upa", "Tofa", "Cyclo", "Steroids", "IFX")))) |> 
+  distinct(cpi_num, .keep_all = TRUE) |> 
+  group_by(cohort) |> 
+  count()
+
+asuc |> 
+  filter(colect == 1) |> 
+   mutate(cohort = factor(case_when(
+    ifx == 1 ~ "IFX",
+    tofa == 1 ~ "Tofa",
+    upa == 1 ~ "Upa",
+    .default = "Steroids"
+  ), levels = rev(c("Upa", "Tofa", "Cyclo", "Steroids", "IFX")))) |> 
+  distinct(cpi_num, .keep_all = TRUE) |> 
+  select(cohort, time_to_colect) |>
+  arrange(cohort, time_to_colect) |> 
   print(n = Inf)
 
-all_hosp2|> 
-  filter(colectomy == 1) |> 
-  distinct(cpi_num, .keep_all = TRUE) |> 
-  select(cohort, admit_date, colect_date) |> 
-  mutate(day = as.numeric(colect_date - admit_date + 1)) |> 
-  arrange(cohort, day) |> 
-  print(n = Inf)
+# Note a bunch of NEGATIVE time to colect
 
 ```
 
 *Colectomies*
-IFX = 8/156 by day 7
-IFX = 30/156 by day 14
-tofa = 0/31 by day 7
-tofa = 3/31 by day 14
-upa = 2/20 by day 7
-upa = 4/20 by day 14
-CS - 113/697 by day 7
-CS - 128/697 by day 14
+IFX = 29+3?/68 by day 7 - 186 treated <br>
+IFX = 41+3?/68 by day 14 - 186 treated <br>
+tofa = 6+1?/10 by day 7 - 41 treated <br>
+tofa = 6+1?/10 by day 14 - 41 treated <br>
+upa = 2/3 by day 7 - 11 treated <br>
+upa = 3/3 by day 14 - 11 treated <br>
+CS - 83+?/171 by day 7 - 607 treated <br>
+CS - 93+?/171 by day 14 - 607 treated <br>
 
-Will need to pull more recent data to get
-- CRP on CS patients
-- FCP on CS patients
-- more complete and accurate overall #s (note weirdness with CS and colectomy dates [some negative #s of days])
+Will need to check the data to get
+
+- more complete and accurate overall #s (note weirdness with colectomy dates [some negative #s of days])
+- also upa total seems low?
+- tofa total may be low
